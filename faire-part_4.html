@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Olivia & Manuarii — 19 Septembre 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Montserrat:wght@200;300;400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #f5f0eb;
+    background-image:
+      radial-gradient(ellipse at 20% 20%, rgba(180,210,180,0.15) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 80%, rgba(180,210,180,0.1) 0%, transparent 60%);
+    font-family: 'Cormorant Garamond', serif;
+    padding: 30px 20px;
+    gap: 32px;
+  }
+
+  /*
+   * STRUCTURE
+   * ─────────
+   * .scene  — perspective container, largeur = 2 pages, hauteur fixe
+   *   .book  — position:relative, même taille que .scene
+   *
+   *   Couche 1 (fond) : .interior — flex row avec les 2 pages intérieures
+   *     .int-left   — intérieur gauche
+   *     .spine      — reliure
+   *     .int-right  — intérieur droit
+   *
+   *   Couche 2 (dessus) : .cover — la couverture (devant du faire-part)
+   *     largeur = 50% du book (= 1 page), positionnée à droite
+   *     transform-origin: left center  → pivote sur son bord gauche (= milieu du book)
+   *     Fermé  : rotateY(0deg)    → couvre la moitié droite, avec ombre portée sur la gauche
+   *     Ouvert : rotateY(-180deg) → rabattue à plat sur la gauche, invisible (backface hidden)
+   *
+   *   La couverture a aussi une ombre dynamique qui simule la profondeur.
+   */
+
+  .scene {
+    perspective: 1800px;
+    width: min(90vw, 700px);
+    /* hauteur calculée en JS */
+  }
+
+  .book {
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+
+  /* ── INTÉRIEUR (toujours visible derrière) ── */
+  .interior {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.1);
+  }
+
+/* intérieur caché quand le livre est fermé */
+.interior {
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+/* intérieur visible quand ouvert */
+.book.open .interior {
+  opacity: 1;
+  transition: opacity 0.6s ease 0.2s;
+}
+
+  .int-left, .int-right {
+    flex: 1;
+    overflow: hidden;
+    background: #f5f0eb;
+  }
+
+  .int-left { border-radius: 4px 0 0 4px; }
+  .int-right { border-radius: 0 4px 4px 0; }
+
+  .int-left img, .int-right img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  .spine {
+    width: 3px;
+    flex-shrink: 0;
+    background: linear-gradient(to bottom,
+      transparent 0%,
+      #f1be0f 15%,
+      #f1be0f 50%,
+      #f1be0f 85%,
+      transparent 100%);
+  }
+
+  /* ── COUVERTURE (pivote comme une porte) ── */
+  .cover {
+    position: absolute;
+    top: 0; bottom: 0;
+    right: 0;           /* accrochée à droite du book */
+    width: 50%;         /* = 1 page */
+    transform-style: preserve-3d;
+    transform-origin: left center;   /* pivot = milieu du book */
+    transform: rotateY(0deg);
+    transition: transform 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    border-radius: 0 4px 4px 0;
+  }
+  .book.open .cover {
+    transform: rotateY(-180deg);
+    cursor: default;
+  }
+
+  /* face visible (recto = devant du faire-part) */
+  .cover-front {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    overflow: hidden;
+    border-radius: inherit;
+    background: white;
+    /* ombre sur le bord gauche pour donner du relief */
+    box-shadow:
+      -8px 0 20px rgba(0,0,0,0.15),
+      0 20px 60px rgba(0,0,0,0.2),
+      0 4px 16px rgba(0,0,0,0.12);
+    transition: box-shadow 0.9s ease;
+  }
+  .book.open .cover-front {
+    box-shadow: none;
+  }
+  .cover-front img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* dos de la couverture (invisible, backface-hidden) */
+  .cover-back {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform: rotateY(180deg);
+    background: #f0ede8;
+    border-radius: inherit;
+  }
+
+  .cover-back img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* ── BUTTONS ── */
+  .btn-group {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+  .btn {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    padding: 12px 26px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    border: none;
+    outline: none;
+  }
+  .btn-open {
+    background: #f1be0f;
+    color: white;
+    box-shadow: 0 4px 16px #f1be0f;
+  }
+  .btn-open:hover:not(:disabled) {
+    background: #f1be0f;
+    transform: translateY(-1px);
+  }
+  .btn-close {
+    background: transparent;
+    color: #f1be0f;
+    border: 1px solid #f1be0f;
+  }
+  .btn-close:hover:not(:disabled) {
+    background: #f1be0f;
+    transform: translateY(-1px);
+  }
+  .btn:disabled { opacity: 0.3; cursor: default; }
+
+  .caption {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: #a09080;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<div class="scene" id="scene">
+  <div class="book" id="book">
+
+    <!-- INTÉRIEUR (fond permanent) -->
+    <div class="interior">
+      <div class="int-left"></div>
+      <div class="spine"></div>
+      <div class="int-right">
+        <img src="inside_right.pdf">
+      </div>
+    </div>
+
+    <!-- COUVERTURE qui pivote -->
+    <div class="cover" id="cover" onclick="openCard()">
+      <div class="cover-front">
+        <img src="front.pdf">
+      </div>
+      <div class="cover-back">
+        <img src="inside_left.pdf">
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="btn-group">
+  <button class="btn btn-close" id="btnClose" onclick="closeCard()" disabled>← Refermer</button>
+  <button class="btn btn-open" id="btnOpen" onclick="openCard()">Ouvrir le faire-part →</button>
+</div>
+
+<p class="caption">Olivia & Manuarii · 23 Mai 2026</p>
+
+<script>
+  const scene  = document.getElementById('scene');
+  const book   = document.getElementById('book');
+  const cover  = document.getElementById('cover');
+  const btnOpen  = document.getElementById('btnOpen');
+  const btnClose = document.getElementById('btnClose');
+  let isOpen = false;
+  let animating = false;
+
+  /* Hauteur = ratio de l'image devant × largeur d'une page (= moitié de la scène) */
+  function computeHeight() {
+    const img = document.querySelector('.cover-front img');
+    if (!img.naturalWidth) return;
+    const pageW = scene.offsetWidth / 2;
+    scene.style.height = (pageW * img.naturalHeight / img.naturalWidth) + 'px';
+  }
+  const img0 = document.querySelector('.cover-front img');
+  img0.complete && img0.naturalWidth ? computeHeight() : img0.addEventListener('load', computeHeight);
+  window.addEventListener('resize', computeHeight);
+
+  function openCard() {
+    if (isOpen || animating) return;
+    animating = true; isOpen = true;
+    book.classList.add('open');
+    cover.onclick = null;
+    btnOpen.disabled = true;
+    btnClose.disabled = false;
+    setTimeout(() => { animating = false; }, 950);
+  }
+
+  function closeCard() {
+    if (!isOpen || animating) return;
+    animating = true; isOpen = false;
+    book.classList.remove('open');
+    btnOpen.disabled = false;
+    btnClose.disabled = true;
+    setTimeout(() => {
+      cover.onclick = openCard;
+      animating = false;
+    }, 950);
+  }
+</script>
+</body>
+</html>
